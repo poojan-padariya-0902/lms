@@ -14,6 +14,10 @@ import { CreateEnrollmentDto } from './dto/create-enrollment.dto';
 import { UpdateEnrollmentStatusDto } from './dto/update-enrollment.dto';
 import { CoursesService } from '../courses/courses.service';
 import { UsersService } from '../users/users.service';
+import {
+  AppEventsService,
+  AppEventType,
+} from '../common/events/app-events.service';
 
 @Injectable()
 export class EnrollmentsService {
@@ -22,6 +26,7 @@ export class EnrollmentsService {
     private readonly enrollmentModel: Model<EnrollmentDocument>,
     private readonly coursesService: CoursesService,
     private readonly usersService: UsersService,
+    private readonly eventsService: AppEventsService,
   ) {}
 
   async create(
@@ -53,6 +58,13 @@ export class EnrollmentsService {
       course: (course as any)._id,
       enrolledAt: new Date(),
       status: EnrollmentStatus.ACTIVE,
+    });
+
+    // Asynchronously dispatch decoupled event for email notifications
+    this.eventsService.emitEvent(AppEventType.ENROLLMENT_CREATED, {
+      studentUuid: targetStudentUuid,
+      courseTitle: course.title,
+      enrolledAt: createdEnrollment.enrolledAt,
     });
 
     return await this.findOne(createdEnrollment.uuid);

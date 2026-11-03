@@ -10,6 +10,11 @@ import { AuthModule } from './auth/auth.module';
 import { LessonsModule } from './lessons/lessons.module';
 import { EnrollmentsModule } from './enrollments/enrollments.module';
 import { ProgressModule } from './progress/progress.module';
+import { ReviewsModule } from './reviews/reviews.module';
+import { QuizzesModule } from './quizzes/quizzes.module';
+import { UploadsModule } from './uploads/uploads.module';
+import { AppEventsModule } from './common/events/app-events.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -22,6 +27,8 @@ import { ProgressModule } from './progress/progress.module';
         uri: configService.get<string>('MONGODB_URI'),
       }),
     }),
+    AppEventsModule,
+    NotificationsModule,
     CoursesModule,
     CategoriesModule,
     UsersModule,
@@ -29,6 +36,9 @@ import { ProgressModule } from './progress/progress.module';
     LessonsModule,
     EnrollmentsModule,
     ProgressModule,
+    ReviewsModule,
+    QuizzesModule,
+    UploadsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
