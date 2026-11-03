@@ -22,11 +22,18 @@ async function bootstrap() {
     .setTitle('LMS Backend API')
     .setDescription('LMS Backend API Documentation')
     .setVersion('1.0')
+    .addTag('auth')
     .addTag('courses')
+    .addTag('users')
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  SwaggerModule.setup('api', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+  });
 
   await app.listen(process.env.PORT ?? 3000);
 }

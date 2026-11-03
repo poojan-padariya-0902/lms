@@ -7,11 +7,16 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiConsumes, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { CoursesService } from './courses.service';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../users/schemas/user.schema';
 
 @ApiTags('courses')
 @Controller('courses')
@@ -35,12 +40,18 @@ export class CoursesController {
     return await this.coursesService.findOne(uuid);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.INSTRUCTOR, UserRole.ADMIN)
   @ApiConsumes('application/x-www-form-urlencoded')
   @Post()
   async create(@Body() createCourseDto: CreateCourseDto) {
     return await this.coursesService.create(createCourseDto);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.INSTRUCTOR, UserRole.ADMIN)
   @ApiConsumes('application/x-www-form-urlencoded')
   @Patch(':uuid')
   async update(
@@ -50,6 +61,9 @@ export class CoursesController {
     return await this.coursesService.update(uuid, updateCourseDto);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.INSTRUCTOR, UserRole.ADMIN)
   @Delete(':uuid')
   async delete(@Param('uuid', ParseUUIDPipe) uuid: string) {
     return await this.coursesService.delete(uuid);
