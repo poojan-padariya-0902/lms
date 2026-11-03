@@ -5,6 +5,8 @@ import { Course, CourseDocument } from './schemas/course.schema';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { CategoriesService } from '../categories/categories.service';
+import { PaginationDto } from '../common/dto/pagination.dto';
+import { paginate, PaginatedResult } from '../common/utils/paginate.util';
 
 @Injectable()
 export class CoursesService {
@@ -29,11 +31,11 @@ export class CoursesService {
     return await this.findOne(createdCourse.uuid);
   }
 
-  async findAll(): Promise<Course[]> {
-    return await this.courseModel
-      .find()
-      .populate('category')
-      .exec();
+  async findAll(paginationDto?: PaginationDto): Promise<PaginatedResult<Course>> {
+    return await paginate<Course>(this.courseModel, {}, paginationDto, {
+      populate: 'category',
+      sort: { createdAt: -1 },
+    });
   }
 
   async findOne(uuid: string): Promise<Course> {
@@ -81,13 +83,18 @@ export class CoursesService {
     return { message: `Course with UUID ${uuid} has been deleted` };
   }
 
-  async findByCategory(categoryUuid: string): Promise<Course[]> {
+  async findByCategory(categoryUuid: string, paginationDto?: PaginationDto): Promise<PaginatedResult<Course>> {
     const category = await this.categoriesService.findOne(categoryUuid);
 
-    return await this.courseModel
-      .find({ category: (category as any)._id })
-      .populate('category')
-      .exec();
+    return await paginate<Course>(
+      this.courseModel,
+      { category: (category as any)._id },
+      paginationDto,
+      {
+        populate: 'category',
+        sort: { createdAt: -1 },
+      },
+    );
   }
 
   async countByCategoryId(categoryId: string): Promise<number> {

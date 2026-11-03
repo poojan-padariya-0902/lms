@@ -17,6 +17,8 @@ import {
   AppEventsService,
   AppEventType,
 } from '../common/events/app-events.service';
+import { PaginationDto } from '../common/dto/pagination.dto';
+import { paginate, PaginatedResult } from '../common/utils/paginate.util';
 
 @Injectable()
 export class QuizzesService {
@@ -43,13 +45,18 @@ export class QuizzesService {
     return await this.findOne(createdQuiz.uuid);
   }
 
-  async findByCourse(courseUuid: string): Promise<Quiz[]> {
+  async findByCourse(courseUuid: string, paginationDto?: PaginationDto): Promise<PaginatedResult<Quiz>> {
     const course = await this.coursesService.findOne(courseUuid);
 
-    return await this.quizModel
-      .find({ course: (course as any)._id })
-      .populate('course')
-      .exec();
+    return await paginate<Quiz>(
+      this.quizModel,
+      { course: (course as any)._id },
+      paginationDto,
+      {
+        populate: 'course',
+        sort: { createdAt: -1 },
+      },
+    );
   }
 
   async findOne(uuid: string): Promise<Quiz> {

@@ -12,6 +12,8 @@ import { UpdateReviewDto } from './dto/update-review.dto';
 import { CoursesService } from '../courses/courses.service';
 import { UsersService } from '../users/users.service';
 import { EnrollmentsService } from '../enrollments/enrollments.service';
+import { PaginationDto } from '../common/dto/pagination.dto';
+import { paginate, PaginatedResult } from '../common/utils/paginate.util';
 
 @Injectable()
 export class ReviewsService {
@@ -61,14 +63,18 @@ export class ReviewsService {
     return await this.findOne(createdReview.uuid);
   }
 
-  async findByCourse(courseUuid: string): Promise<Review[]> {
+  async findByCourse(courseUuid: string, paginationDto?: PaginationDto): Promise<PaginatedResult<Review>> {
     const course = await this.coursesService.findOne(courseUuid);
 
-    return await this.reviewModel
-      .find({ course: (course as any)._id })
-      .populate({ path: 'student', select: 'uuid name' })
-      .sort({ createdAt: -1 })
-      .exec();
+    return await paginate<Review>(
+      this.reviewModel,
+      { course: (course as any)._id },
+      paginationDto,
+      {
+        populate: { path: 'student', select: 'uuid name' },
+        sort: { createdAt: -1 },
+      },
+    );
   }
 
   /**

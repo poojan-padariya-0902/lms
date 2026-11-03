@@ -6,6 +6,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -17,6 +18,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/schemas/user.schema';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @ApiTags('quizzes')
 @Controller('quizzes')
@@ -34,8 +36,9 @@ export class QuizzesController {
   @Get('course/:courseUuid')
   async findByCourse(
     @Param('courseUuid', ParseUUIDPipe) courseUuid: string,
+    @Query() paginationDto: PaginationDto,
   ) {
-    return await this.quizzesService.findByCourse(courseUuid);
+    return await this.quizzesService.findByCourse(courseUuid, paginationDto);
   }
 
   @Get(':uuid')

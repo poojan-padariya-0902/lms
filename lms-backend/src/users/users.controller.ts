@@ -1,7 +1,8 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @ApiTags('users')
 @ApiConsumes('application/x-www-form-urlencoded')
@@ -16,8 +17,8 @@ export class UsersController {
     }
 
     @Get()
-    async findAll() {
-        return await this.usersService.findAll();
+    async findAll(@Query() paginationDto: PaginationDto) {
+        return await this.usersService.findAll(paginationDto);
     }
 
     @Get(':uuid')

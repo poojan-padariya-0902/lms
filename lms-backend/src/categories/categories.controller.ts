@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, ParseUUIDPipe, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, ParseUUIDPipe, Delete, Query, UseGuards } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -7,6 +7,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../users/schemas/user.schema';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @ApiTags('Categories')
 @Controller('categories')
@@ -23,8 +24,8 @@ export class CategoriesController {
   }
 
   @Get()
-  findAll() {
-    return this.categoriesService.findAll();
+  findAll(@Query() paginationDto: PaginationDto) {
+    return this.categoriesService.findAll(paginationDto);
   }
 
   @Get(':uuid')

@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
@@ -17,6 +18,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/schemas/user.schema';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @ApiTags('courses')
 @Controller('courses')
@@ -24,15 +26,16 @@ export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
 
   @Get()
-  async findAll() {
-    return await this.coursesService.findAll();
+  async findAll(@Query() paginationDto: PaginationDto) {
+    return await this.coursesService.findAll(paginationDto);
   }
 
   @Get('category/:categoryUuid')
   async findByCategory(
     @Param('categoryUuid', ParseUUIDPipe) categoryUuid: string,
+    @Query() paginationDto: PaginationDto,
   ) {
-    return await this.coursesService.findByCategory(categoryUuid);
+    return await this.coursesService.findByCategory(categoryUuid, paginationDto);
   }
 
   @Get(':uuid')

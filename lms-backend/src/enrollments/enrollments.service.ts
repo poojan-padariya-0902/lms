@@ -18,6 +18,8 @@ import {
   AppEventsService,
   AppEventType,
 } from '../common/events/app-events.service';
+import { PaginationDto } from '../common/dto/pagination.dto';
+import { paginate, PaginatedResult } from '../common/utils/paginate.util';
 
 @Injectable()
 export class EnrollmentsService {
@@ -70,13 +72,14 @@ export class EnrollmentsService {
     return await this.findOne(createdEnrollment.uuid);
   }
 
-  async findAll(): Promise<Enrollment[]> {
-    return await this.enrollmentModel
-      .find()
-      .populate({ path: 'student', select: '-password' })
-      .populate('course')
-      .sort({ createdAt: -1 })
-      .exec();
+  async findAll(paginationDto?: PaginationDto): Promise<PaginatedResult<Enrollment>> {
+    return await paginate<Enrollment>(this.enrollmentModel, {}, paginationDto, {
+      populate: [
+        { path: 'student', select: '-password' },
+        { path: 'course' },
+      ],
+      sort: { createdAt: -1 },
+    });
   }
 
   async findOne(uuid: string): Promise<Enrollment> {
@@ -93,24 +96,32 @@ export class EnrollmentsService {
     return enrollment;
   }
 
-  async findMyEnrollments(userUuid: string): Promise<Enrollment[]> {
+  async findMyEnrollments(userUuid: string, paginationDto?: PaginationDto): Promise<PaginatedResult<Enrollment>> {
     const student = await this.usersService.findOne(userUuid);
 
-    return await this.enrollmentModel
-      .find({ student: (student as any)._id })
-      .populate('course')
-      .sort({ createdAt: -1 })
-      .exec();
+    return await paginate<Enrollment>(
+      this.enrollmentModel,
+      { student: (student as any)._id },
+      paginationDto,
+      {
+        populate: 'course',
+        sort: { createdAt: -1 },
+      },
+    );
   }
 
-  async findByCourse(courseUuid: string): Promise<Enrollment[]> {
+  async findByCourse(courseUuid: string, paginationDto?: PaginationDto): Promise<PaginatedResult<Enrollment>> {
     const course = await this.coursesService.findOne(courseUuid);
 
-    return await this.enrollmentModel
-      .find({ course: (course as any)._id })
-      .populate({ path: 'student', select: '-password' })
-      .sort({ createdAt: -1 })
-      .exec();
+    return await paginate<Enrollment>(
+      this.enrollmentModel,
+      { course: (course as any)._id },
+      paginationDto,
+      {
+        populate: { path: 'student', select: '-password' },
+        sort: { createdAt: -1 },
+      },
+    );
   }
 
   async updateStatus(

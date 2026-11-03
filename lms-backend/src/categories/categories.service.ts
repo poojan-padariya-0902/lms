@@ -5,6 +5,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Category, CategoryDocument } from './schemas/category.schema';
 import { CoursesService } from '../courses/courses.service';
+import { PaginationDto } from '../common/dto/pagination.dto';
+import { paginate, PaginatedResult } from '../common/utils/paginate.util';
 
 @Injectable()
 export class CategoriesService {
@@ -21,8 +23,10 @@ export class CategoriesService {
     return createdCategory;
   }
 
-  async findAll(): Promise<Category[]> {
-    return this.categoryModel.find().exec();
+  async findAll(paginationDto?: PaginationDto): Promise<PaginatedResult<Category>> {
+    return await paginate<Category>(this.categoryModel, {}, paginationDto, {
+      sort: { name: 1 },
+    });
   }
   
   async findOne(uuid: string): Promise<Category> {

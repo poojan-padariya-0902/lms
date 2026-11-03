@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -19,6 +20,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/schemas/user.schema';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @ApiTags('enrollments')
 @ApiBearerAuth()
@@ -28,22 +30,29 @@ export class EnrollmentsController {
   constructor(private readonly enrollmentsService: EnrollmentsService) {}
 
   @Get('my-courses')
-  async findMyEnrollments(@Req() req: any) {
-    return await this.enrollmentsService.findMyEnrollments(req.user.uuid);
+  async findMyEnrollments(
+    @Req() req: any,
+    @Query() paginationDto: PaginationDto,
+  ) {
+    return await this.enrollmentsService.findMyEnrollments(
+      req.user.uuid,
+      paginationDto,
+    );
   }
 
   @Roles(UserRole.INSTRUCTOR, UserRole.ADMIN)
   @Get('course/:courseUuid')
   async findByCourse(
     @Param('courseUuid', ParseUUIDPipe) courseUuid: string,
+    @Query() paginationDto: PaginationDto,
   ) {
-    return await this.enrollmentsService.findByCourse(courseUuid);
+    return await this.enrollmentsService.findByCourse(courseUuid, paginationDto);
   }
 
   @Roles(UserRole.ADMIN)
   @Get()
-  async findAll() {
-    return await this.enrollmentsService.findAll();
+  async findAll(@Query() paginationDto: PaginationDto) {
+    return await this.enrollmentsService.findAll(paginationDto);
   }
 
   @Get(':uuid')

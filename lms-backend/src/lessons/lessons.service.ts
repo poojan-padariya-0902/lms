@@ -6,6 +6,8 @@ import { CoursesService } from '../courses/courses.service';
 import { CreateLessonDto } from './dto/create-lesson.dto';
 import { Course } from '../courses/schemas/course.schema';
 import { UpdateLessonDto } from './dto/update-lesson.dto';
+import { PaginationDto } from '../common/dto/pagination.dto';
+import { paginate, PaginatedResult } from '../common/utils/paginate.util';
 
 @Injectable()
 export class LessonsService {
@@ -27,10 +29,11 @@ export class LessonsService {
         return await this.findOne(createdLesson.uuid)
     }
 
-    async findAll(): Promise<Lesson[]> {
-        const lessons = await this.lessonModel.find().populate('course').sort({ course: 1, order: 1 }).exec()
-
-        return lessons
+    async findAll(paginationDto?: PaginationDto): Promise<PaginatedResult<Lesson>> {
+        return await paginate<Lesson>(this.lessonModel, {}, paginationDto, {
+            populate: 'course',
+            sort: { course: 1, order: 1 },
+        });
     }
 
     async findOne(uuid: string): Promise<Lesson> {
@@ -43,12 +46,18 @@ export class LessonsService {
         return lesson
     }
 
-    async findByCourse(courseUuid: string): Promise<Lesson[]> {
+    async findByCourse(courseUuid: string, paginationDto?: PaginationDto): Promise<PaginatedResult<Lesson>> {
         const course = await this.coursesService.findOne(courseUuid);
 
-        const lessonsByCourse = await this.lessonModel.find({ course: (course as any)._id }).populate('course').sort({ order: 1 }).exec();
-
-        return lessonsByCourse
+        return await paginate<Lesson>(
+            this.lessonModel,
+            { course: (course as any)._id },
+            paginationDto,
+            {
+                populate: 'course',
+                sort: { order: 1 },
+            },
+        );
     }
 
     async update(uuid: string, updateLessonDto: UpdateLessonDto): Promise<Lesson> {

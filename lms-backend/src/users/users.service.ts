@@ -5,6 +5,8 @@ import { Model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { PaginationDto } from '../common/dto/pagination.dto';
+import { paginate, PaginatedResult } from '../common/utils/paginate.util';
 
 @Injectable()
 export class UsersService {
@@ -40,10 +42,11 @@ export class UsersService {
         return await this.userModel.findOne({ email }).exec();
     }
 
-    async findAll(): Promise<User[]> {
-        const users = await this.userModel.find().select('-password').exec(); // Exclude password field
-
-        return users;
+    async findAll(paginationDto?: PaginationDto): Promise<PaginatedResult<User>> {
+        return await paginate<User>(this.userModel, {}, paginationDto, {
+            select: '-password',
+            sort: { createdAt: -1 },
+        });
     }
 
     async findOne(uuid: string): Promise<User> {
