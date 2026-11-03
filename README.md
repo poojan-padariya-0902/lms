@@ -13,8 +13,9 @@ A modern, scalable Learning Management System project built step-by-step from th
 ```text
 lms/
 ├── .agents/
-│   └── Handoff.md        # Complete step-by-step curriculum & session handoff log
-├── lms-backend/          # NestJS REST API server (production-ready)
+│   ├── Handoff.md            # Backend curriculum & session handoff log
+│   └── Frontend-Handoff.md   # Frontend architecture specification & agent roadmap
+├── lms-backend/              # NestJS REST API server (production-ready)
 │   ├── src/
 │   │   ├── auth/         # JWT auth, Passport strategy, RBAC guards
 │   │   ├── users/        # User management & bcrypt password security

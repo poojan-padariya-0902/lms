@@ -176,3 +176,4 @@ Unhandled errors and database exceptions (e.g., MongoDB `11000` duplicate key er
 * **TypeScript Compilation:** Zero errors (`nest build`).
 * **Unit Testing:** Automated test suites passing via Jest and `@nestjs/testing` mocks (`npm test`).
 * **API Documentation:** Interactive OpenAPI 3.0 documentation with Bearer token authentication at `http://localhost:5000/api`.
+
