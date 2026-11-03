@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
@@ -7,8 +8,69 @@ import { AppModule } from './app.module';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
+/**
+ * Safely parses allowed CORS origins from environment variable.
+ * Supports:
+ * - Array: '["http://localhost:3000", "http://127.0.0.1:3000"]'
+ * - Single/double quoted list: "['http://localhost:3000', 'http://127.0.0.1:3000']"
+ * - Comma-separated string fallback: "http://localhost:3000,http://127.0.0.1:3000"
+ */
+function parseAllowedOrigins(raw?: string): string[] {
+  const defaultOrigins = ['http://localhost:3000', 'http://127.0.0.1:3000'];
+  if (!raw) return defaultOrigins;
+
+  const trimmed = raw.trim();
+
+  // Handle array format e.g. ["http://localhost:3000", "http://127.0.0.1:3000"]
+  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.map((s) => String(s).trim()).filter(Boolean);
+      }
+    } catch {
+      // Loose array or single-quote strings fallback
+      return trimmed
+        .slice(1, -1)
+        .split(',')
+        .map((s) => s.trim().replace(/^["'`]|["'`]$/g, ''))
+        .filter(Boolean);
+    }
+  }
+
+  // Fallback for comma-separated string
+  return trimmed
+    .split(',')
+    .map((s) => s.trim().replace(/^["'`]|["'`]$/g, ''))
+    .filter(Boolean);
+}
+
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const logger = new Logger('Bootstrap');
+  const configService = app.get(ConfigService);
+
+  // Read allowed origins from .env array
+  const rawOrigins = configService.get<string>('ALLOWED_ORIGINS');
+  const allowedOrigins = parseAllowedOrigins(rawOrigins);
+
+  logger.log(`Configured CORS Whitelist origins: ${JSON.stringify(allowedOrigins)}`);
+
+  // Enable Cross-Origin Resource Sharing (CORS) with whitelist from .env
+  app.enableCors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, Postman, SSR) or matching whitelisted origins
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        logger.warn(`Blocked request from disallowed CORS origin: ${origin}`);
+        callback(null, false);
+      }
+    },
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type,Accept,Authorization,X-Requested-With',
+    credentials: true,
+  });
 
   // 1. Set global API route prefix
   app.setGlobalPrefix('api');

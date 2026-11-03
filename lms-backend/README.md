@@ -2,8 +2,6 @@
 
 RESTful API backend for the Learning Management System (LMS), engineered with NestJS 12, TypeScript, and MongoDB.
 
-> **Note:** This repository is currently backend-only. Frontend client development will be undertaken in a future milestone.
-
 ---
 
 ## Architecture Highlights
@@ -13,7 +11,7 @@ RESTful API backend for the Learning Management System (LMS), engineered with Ne
    * Public identifiers use UUID v4, indexed and enforced uniquely across schemas.
 
 2. **Database Relationships & Integrity:**
-   * Referenced documents use Mongoose `ref` and are populated dynamically via `.populate()`.
+   * Relational references use Mongoose `ref` and are populated dynamically via `.populate()`.
    * Cross-module validation ensures foreign UUIDs exist before creating or updating records.
    * Categories cannot be deleted if active courses are assigned to them (enforced via `CoursesService.countByCategoryId`).
 
@@ -21,29 +19,34 @@ RESTful API backend for the Learning Management System (LMS), engineered with Ne
    * Passwords hashed via `bcrypt` (10 rounds) and sanitized from queries (`.select('-password')`).
    * Stateless JWT issuance (`JwtService`) and verification via Passport JWT strategy (`JwtAuthGuard`).
    * Declarative role authorization using `@Roles(UserRole.INSTRUCTOR, UserRole.ADMIN)` and `RolesGuard`.
+   * Public registration (`/api/auth/register`) strictly assigns `role: student` to prevent self-privilege escalation.
 
-4. **Global Pipeline & Clean Response Envelopes:**
+4. **Instructor Content Isolation & Masked Roster:**
+   * Instructors can only view and mutate courses they authored (`CoursesService.findInstructorCourses`).
+   * In student roster queries, student email addresses are masked (`a***e@domain.com`) to protect learner privacy. Unmasked emails are restricted to Admins.
+
+5. **Unified Change Request & Application System (`RequestsModule`):**
+   * Manages instructor promotions, course publish approvals, course deletions, new category requests, and student enrollment revocations.
+   * Requires mandatory genuine justifications (`reason` with minimum length validation).
+   * Generates trackable reference numbers (e.g. `APP-2026-XXXX`).
+
+6. **Environment-Driven CORS Array Whitelist:**
+   * Dynamically loads allowed origins from `.env` array:
+     `ALLOWED_ORIGINS=["http://localhost:3000", "http://127.0.0.1:3000"]`
+   * Safely parses JSON array and validates incoming browser preflight `OPTIONS` requests.
+
+7. **Global Pipeline & Clean Response Envelopes:**
    * **Global `ValidationPipe`:** Enforces whitelist filtering and class-transformer type casting.
-   * **`TransformInterceptor`:**
-     * **Mutations (`POST`, `PATCH`, `PUT`, `DELETE`):** Return lightweight confirmation envelopes `{ success: true, statusCode, message, timestamp }` with no redundant data payloads.
-     * **Paginated Queries (`GET`):** Automatically format lists into `{ success: true, statusCode, data: [...], pagination: { total, page, limit, totalPages }, timestamp }`.
-   * **`AllExceptionsFilter`:** Catches HttpExceptions and MongoDB `11000` duplicate key errors, returning uniform error envelopes.
+   * **`TransformInterceptor`:** Lightweight confirmation envelopes for mutations and standardized paginated envelopes for lists.
+   * **`AllExceptionsFilter`:** Catches HttpExceptions and MongoDB duplicate key errors (`11000`).
 
-5. **Universal Default Pagination:**
-   * All list endpoints default to `page = 1, limit = 10` if query parameters are omitted.
-   * Concurrently queries items and total count using `Promise.all()`.
-
-6. **Automated Assessment & Aggregation Engine:**
+8. **Automated Assessment & Aggregation Engine:**
    * **Quizzes:** Hidden answers (`{ select: false }` on `correctOptionIndex`) prevent pre-submission leaks; server-side auto-grading evaluates scores and pass/fail thresholds.
    * **Reviews:** MongoDB native aggregation pipelines (`$match`, `$group`, `$avg`, `$cond`) calculate average ratings and star breakdowns.
 
-7. **Media Uploads & Static Serving:**
+9. **Media Uploads & Static Serving:**
    * Multer file interceptor validating image types (`jpg`, `png`, `webp`) up to 5MB.
    * Direct static file serving via Express `useStaticAssets` at `/uploads/:filename`.
-
-8. **Asynchronous Event-Driven Architecture:**
-   * Decoupled `AppEventsService` dispatches background events (`enrollment.created`, `quiz.passed`).
-   * `NotificationsService` handles non-blocking email simulation and certificate unlock notifications.
 
 ---
 
@@ -59,9 +62,10 @@ cp .env.sample .env
 |---|---|---|
 | `PORT` | HTTP server port | `5000` |
 | `MONGODB_URI` | MongoDB connection string | `mongodb://127.0.0.1:27017/lms-backend` |
-| `JWT_SECRET` | Secret key for signing JWT tokens | `superSecretJwtKeyChangeInProduction!` |
-| `JWT_EXPIRES_IN` | Token expiration duration | `7d` |
+| `JWT_SECRET` | Secret key for signing JWT tokens | `mySuperSecretLmsKey2026!` |
+| `JWT_EXPIRES_IN` | Token expiration duration | `1d` |
 | `SALT_ROUNDS` | bcrypt salt hashing rounds | `10` |
+| `ALLOWED_ORIGINS` | Array of permitted CORS origins | `["http://localhost:3000", "http://127.0.0.1:3000"]` |
 
 ---
 
@@ -96,9 +100,15 @@ Interactive OpenAPI documentation is available when the server is running:
 ### Endpoint Overview
 
 #### Auth (`/api/auth`)
-* `POST /api/auth/register` — Register a new student account
+* `POST /api/auth/register` — Register a new student account (strictly student role)
 * `POST /api/auth/login` — Login with email/password and obtain JWT token
 * `GET /api/auth/profile` — Verify token and retrieve logged-in user profile
+
+#### Requests & Applications (`/api/requests`)
+* `POST /api/requests` — Submit a change request (instructor application, publish, delete, category, revocation)
+* `GET /api/requests/my-requests` — Get current user's submitted requests & application status
+* `GET /api/requests` — Admin list of all pending/reviewed change requests
+* `PATCH /api/requests/:uuid/review` — Admin approve or reject request with feedback
 
 #### Users (`/api/users`)
 * `POST /api/users` — Provision new user (Admin)
@@ -115,12 +125,13 @@ Interactive OpenAPI documentation is available when the server is running:
 * `DELETE /api/categories/:uuid` — Delete category (protected against deletion if courses exist)
 
 #### Courses (`/api/courses`)
-* `POST /api/courses` — Create course (Instructor/Admin)
-* `GET /api/courses` — Paginated courses with populated categories
+* `POST /api/courses` — Create course (starts in `DRAFT` status)
+* `GET /api/courses` — Paginated courses with populated categories (published only)
+* `GET /api/courses/instructor/my-courses` — Retrieve courses owned by current instructor
 * `GET /api/courses/:uuid` — Retrieve course details
 * `GET /api/courses/category/:categoryUuid` — Paginated courses filtered by category
-* `PATCH /api/courses/:uuid` — Update course details
-* `DELETE /api/courses/:uuid` — Delete course
+* `PATCH /api/courses/:uuid` — Update course details (ownership checked)
+* `DELETE /api/courses/:uuid` — Delete course (ownership checked)
 
 #### Lessons (`/api/lessons`)
 * `POST /api/lessons` — Create curriculum lesson (Instructor/Admin)
@@ -133,8 +144,8 @@ Interactive OpenAPI documentation is available when the server is running:
 #### Enrollments (`/api/enrollments`)
 * `POST /api/enrollments` — Enroll in course (defaults to authenticated student)
 * `GET /api/enrollments/my-courses` — Paginated list of enrolled courses for current user
-* `GET /api/enrollments/course/:courseUuid` — Course enrollment list (Instructor/Admin)
-* `GET /api/enrollments` — Global enrollment list (Admin)
+* `GET /api/enrollments/course/:courseUuid` — Course enrollment roster (student emails masked for instructors)
+* `GET /api/enrollments` — Global enrollment list (Admin unmasked)
 * `PATCH /api/enrollments/:uuid/status` — Update enrollment status (`ACTIVE`, `COMPLETED`, `CANCELLED`)
 * `DELETE /api/enrollments/:uuid` — Unenroll student (Admin)
 
@@ -146,7 +157,7 @@ Interactive OpenAPI documentation is available when the server is running:
 #### Reviews (`/api/reviews`)
 * `POST /api/reviews` — Submit verified review & rating (Enrolled students only)
 * `GET /api/reviews/course/:courseUuid` — Paginated reviews for a course
-* `GET /api/reviews/course/:courseUuid/stats` — MongoDB aggregation stats (average rating, review count, 5-1 star distribution)
+* `GET /api/reviews/course/:courseUuid/stats` — MongoDB aggregation stats (average rating, distribution)
 * `PATCH /api/reviews/:uuid` — Edit review
 * `DELETE /api/reviews/:uuid` — Delete review
 

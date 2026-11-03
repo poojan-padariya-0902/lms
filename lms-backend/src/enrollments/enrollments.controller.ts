@@ -45,8 +45,9 @@ export class EnrollmentsController {
   async findByCourse(
     @Param('courseUuid', ParseUUIDPipe) courseUuid: string,
     @Query() paginationDto: PaginationDto,
+    @Req() req: any,
   ) {
-    return await this.enrollmentsService.findByCourse(courseUuid, paginationDto);
+    return await this.enrollmentsService.findByCourse(courseUuid, paginationDto, req.user);
   }
 
   @Roles(UserRole.ADMIN)

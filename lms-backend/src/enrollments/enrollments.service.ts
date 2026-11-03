@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -14,6 +15,7 @@ import { CreateEnrollmentDto } from './dto/create-enrollment.dto';
 import { UpdateEnrollmentStatusDto } from './dto/update-enrollment.dto';
 import { CoursesService } from '../courses/courses.service';
 import { UsersService } from '../users/users.service';
+import { UserRole } from '../users/schemas/user.schema';
 import {
   AppEventsService,
   AppEventType,
@@ -110,10 +112,32 @@ export class EnrollmentsService {
     );
   }
 
-  async findByCourse(courseUuid: string, paginationDto?: PaginationDto): Promise<PaginatedResult<Enrollment>> {
+  maskEmail(email?: string): string {
+    if (!email) return '';
+    const parts = email.split('@');
+    if (parts.length !== 2) return email;
+    const [name, domain] = parts;
+    if (name.length <= 2) return `${name[0]}***@${domain}`;
+    return `${name[0]}***${name[name.length - 1]}@${domain}`;
+  }
+
+  async findByCourse(
+    courseUuid: string,
+    paginationDto?: PaginationDto,
+    currentUser?: { uuid: string; role: string },
+  ): Promise<PaginatedResult<Enrollment>> {
     const course = await this.coursesService.findOne(courseUuid);
 
-    return await paginate<Enrollment>(
+    // If caller is an instructor, verify ownership
+    if (currentUser && currentUser.role === UserRole.INSTRUCTOR) {
+      const isOwner =
+        course.instructor && (course.instructor as any).uuid === currentUser.uuid;
+      if (!isOwner) {
+        throw new ForbiddenException('You can only view student rosters for your own courses');
+      }
+    }
+
+    const paginated = await paginate<Enrollment>(
       this.enrollmentModel,
       { course: (course as any)._id },
       paginationDto,
@@ -122,6 +146,19 @@ export class EnrollmentsService {
         sort: { createdAt: -1 },
       },
     );
+
+    // Mask sensitive details (emails) for non-admins
+    if (!currentUser || currentUser.role !== UserRole.ADMIN) {
+      paginated.items = paginated.items.map((item: any) => {
+        const itemObj = item.toObject ? item.toObject() : { ...item };
+        if (itemObj.student && itemObj.student.email) {
+          itemObj.student.email = this.maskEmail(itemObj.student.email);
+        }
+        return itemObj;
+      });
+    }
+
+    return paginated;
   }
 
   async updateStatus(

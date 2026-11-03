@@ -13,6 +13,7 @@ import { ProgressModule } from './progress/progress.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { QuizzesModule } from './quizzes/quizzes.module';
 import { UploadsModule } from './uploads/uploads.module';
+import { RequestsModule } from './requests/requests.module';
 import { AppEventsModule } from './common/events/app-events.module';
 import { NotificationsModule } from './notifications/notifications.module';
 
@@ -39,6 +40,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     ReviewsModule,
     QuizzesModule,
     UploadsModule,
+    RequestsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -2,12 +2,14 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
@@ -30,6 +32,14 @@ export class CoursesController {
     return await this.coursesService.findAll(paginationDto);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.INSTRUCTOR, UserRole.ADMIN)
+  @Get('instructor/my-courses')
+  async findMyCourses(@Req() req: any, @Query() paginationDto: PaginationDto) {
+    return await this.coursesService.findMyCourses(req.user.uuid, paginationDto);
+  }
+
   @Get('category/:categoryUuid')
   async findByCategory(
     @Param('categoryUuid', ParseUUIDPipe) categoryUuid: string,
@@ -48,8 +58,8 @@ export class CoursesController {
   @Roles(UserRole.INSTRUCTOR, UserRole.ADMIN)
   @ApiConsumes('application/x-www-form-urlencoded')
   @Post()
-  async create(@Body() createCourseDto: CreateCourseDto) {
-    return await this.coursesService.create(createCourseDto);
+  async create(@Body() createCourseDto: CreateCourseDto, @Req() req: any) {
+    return await this.coursesService.create(createCourseDto, req.user.uuid);
   }
 
   @ApiBearerAuth()
@@ -60,7 +70,17 @@ export class CoursesController {
   async update(
     @Param('uuid', ParseUUIDPipe) uuid: string,
     @Body() updateCourseDto: UpdateCourseDto,
+    @Req() req: any,
   ) {
+    const course = await this.coursesService.findOne(uuid);
+    const isOwner =
+      course.instructor && (course.instructor as any).uuid === req.user.uuid;
+    const isAdmin = req.user.role === UserRole.ADMIN;
+
+    if (!isOwner && !isAdmin) {
+      throw new ForbiddenException('You can only update courses that you created');
+    }
+
     return await this.coursesService.update(uuid, updateCourseDto);
   }
 
@@ -68,7 +88,16 @@ export class CoursesController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.INSTRUCTOR, UserRole.ADMIN)
   @Delete(':uuid')
-  async delete(@Param('uuid', ParseUUIDPipe) uuid: string) {
+  async delete(@Param('uuid', ParseUUIDPipe) uuid: string, @Req() req: any) {
+    const course = await this.coursesService.findOne(uuid);
+    const isOwner =
+      course.instructor && (course.instructor as any).uuid === req.user.uuid;
+    const isAdmin = req.user.role === UserRole.ADMIN;
+
+    if (!isOwner && !isAdmin) {
+      throw new ForbiddenException('You can only delete courses that you created');
+    }
+
     return await this.coursesService.delete(uuid);
   }
 }
